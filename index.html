@@ -148,6 +148,12 @@ const P = { invite:q.get("i")||"", room:q.get("r")||"", rent:q.get("rent")||"", 
 const won = n => (Number(n)||0).toLocaleString("ko-KR");
 const esc = s => String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
+const DONE_KEY = "gsw-done-" + (P.invite||"open");
+function doneScreen(name, again){
+  document.getElementById("app").innerHTML = `<div class="done"><div class="ok">✓</div><h1>${again?"이미 제출했어요":"제출했어요"}</h1><p class="lead">${name?esc(name)+"님, ":""}입실 신청서가 관리자에게 전달됐어요.<br>${again?"고칠 내용이 있으면 관리자에게 연락해 주세요.":"입실일에 뵙겠습니다."}</p></div>`;
+  const b=document.getElementById("bottom"); if(b) b.remove(); window.scrollTo(0,0);
+}
+try{ const prev=JSON.parse(localStorage.getItem(DONE_KEY)||"null"); if(prev && P.invite){ doneScreen(prev.name, true); return; } }catch(_){}
 if(P.house){ $("#title").textContent = P.house + " 입실 신청서"; document.title = P.house + " 입실 신청서"; }
 if(P.room || P.rent || P.dep){
   $("#offer").hidden=false;
@@ -221,8 +227,8 @@ $("#submit").addEventListener("click", async ()=>{
       offer:{room:P.room, rent:P.rent, deposit:P.dep}, photos:{id:"id.jpg", sig:"sig.png"} };
     const res = await fetch(`${SB_URL}/rest/v1/applications`, {method:"POST", headers:headers({"Content-Type":"application/json", Prefer:"return=minimal"}), body:JSON.stringify({id, invite:P.invite||null, room:P.room||null, data})});
     if(!res.ok) throw new Error("save "+res.status);
-    document.getElementById("app").innerHTML = `<div class="done"><div class="ok">✓</div><h1>제출했어요</h1><p class="lead">${esc(v("#name"))}님, 입실 신청서가 관리자에게 전달됐어요.<br>입실일에 뵙겠습니다.</p></div>`;
-    $("#bottom").remove(); window.scrollTo(0,0);
+    try{ localStorage.setItem(DONE_KEY, JSON.stringify({name:v("#name"), at:Date.now()})); }catch(_){}
+    doneScreen(v("#name"), false);
   }catch(err){
     btn.disabled=false; btn.textContent="제출하기";
     showErr("제출하지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요. 계속 안 되면 관리자에게 문의해 주세요.");
