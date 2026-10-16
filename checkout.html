@@ -106,7 +106,14 @@ select{font:inherit;color:var(--ink);background:var(--fill);border:0;border-radi
   <div class="card">
     <h2>확인</h2>
     <label class="check"><input type="checkbox" id="c1"><span><b>짐을 모두 빼고 방 청소를 마쳤습니다.</b></span></label>
-    <label class="check"><input type="checkbox" id="c2"><span><b>열쇠(카드)를 반납했거나 반납할 예정입니다.</b></span></label>
+    <label class="check"><input type="checkbox" id="c2"><span><b>신발장 정리를 마쳤습니다.</b></span></label>
+    <div class="field"><span class="lb req">파손된 곳이 있나요?</span>
+      <div class="chips" role="radiogroup">
+        <label class="chip"><input type="radio" name="damage" value="none"><span>파손 없음</span></label>
+        <label class="chip"><input type="radio" name="damage" value="yes"><span>파손 있음</span></label>
+      </div>
+      <textarea id="damageNote" placeholder="어디가 어떻게 파손됐는지 적어 주세요. 가능하면 사진도 함께 올려 주세요." hidden></textarea>
+    </div>
     <div class="field"><label class="lb" for="note">요청 사항 (선택)</label><textarea id="note" placeholder="불편했던 점이나 전할 말이 있으면 적어 주세요"></textarea></div>
     <div class="hp" aria-hidden="true"><label>비워두세요<input type="text" id="website" tabindex="-1" autocomplete="off"></label></div>
     <div class="err" id="err" role="alert"></div>
@@ -152,6 +159,7 @@ function draw(g){
     draw(g); });
   $("#g-"+g).addEventListener("click", e=>{ const b=e.target.closest("button[data-i]"); if(!b) return; groups[g].items.splice(Number(b.dataset.i),1); draw(g); });
 });
+document.querySelectorAll("input[name=damage]").forEach(r=>r.addEventListener("change",()=>{ $("#damageNote").hidden = r.value!=="yes" || !r.checked; if(r.value==="none"&&r.checked) $("#damageNote").hidden=true; }));
 $("#acct").addEventListener("input",e=>{ e.target.value=e.target.value.replace(/[^\d-]/g,"").slice(0,24); });
 
 function showErr(m){ $("#err").textContent=m; if(m) $("#err").scrollIntoView({behavior:"smooth",block:"center"}); }
@@ -167,6 +175,10 @@ $("#submit").addEventListener("click", async ()=>{
   if(acct.length<8){ showErr("계좌번호를 다시 확인해 주세요."); $("#acct").focus(); return; }
   if(!holder){ showErr("예금주를 입력해 주세요."); $("#holder").focus(); return; }
   if(!$("#c1").checked||!$("#c2").checked){ showErr("확인 항목을 모두 체크해 주세요."); return; }
+  const damage=(document.querySelector("input[name=damage]:checked")||{}).value||"";
+  if(!damage){ showErr("파손 여부를 골라 주세요."); return; }
+  const damageNote=$("#damageNote").value.trim();
+  if(damage==="yes" && !damageNote){ showErr("파손된 곳을 적어 주세요."); $("#damageNote").focus(); return; }
   if($("#website").value) return;
   if(SB_URL.startsWith("__")){ showErr("아직 준비 중인 신청서예요. 관리자에게 문의해 주세요."); return; }
   const btn=$("#submit"); btn.disabled=true; btn.textContent="올리는 중…";
@@ -177,7 +189,7 @@ $("#submit").addEventListener("click", async ()=>{
       btn.textContent=`사진 올리는 중… (${files.length+1}/${groups.room.items.length+groups.bath.items.length})`;
       const r=await fetch(`${SB_URL}/storage/v1/object/apps/${id}/${name}`,{method:"POST",headers:headers({"Content-Type":"image/jpeg","x-upsert":"false"}),body:it.blob});
       if(!r.ok) throw new Error("upload "+r.status); files.push({name, kind:g}); }
-    const data={kind:"checkout", name:P.name, room:P.room, moveOut:P.out, bank, account:acct, holder, note:$("#note").value.trim(), files, confirmedAt:new Date().toISOString()};
+    const data={kind:"checkout", name:P.name, room:P.room, moveOut:P.out, bank, account:acct, holder, note:$("#note").value.trim(), shoeDone:true, damage, damageNote, files, confirmedAt:new Date().toISOString()};
     const r=await fetch(`${SB_URL}/rest/v1/applications`,{method:"POST",headers:headers({"Content-Type":"application/json",Prefer:"return=minimal"}),body:JSON.stringify({id, invite:P.token||null, room:P.room||null, data})});
     if(!r.ok) throw new Error("save "+r.status);
     try{ localStorage.setItem(DONE_KEY, JSON.stringify({name:P.name||holder, at:Date.now()})); }catch(_){}
